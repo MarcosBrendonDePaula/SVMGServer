@@ -52,9 +52,8 @@ app.post('/createModpackDirectory/:uuid/:token', (req, res) => {
 // Rota para enviar um arquivo para a pasta da modpack
 app.post('/uploadFile/:uuid/:path*', upload.single('file'), (req, res) => {
 	const { uuid } = req.params;
-	const filePath = req.params.path || ''; // Se não houver path especificado, usar string vazia
+	const filePath = decodeURIComponent(req.url).split(`${uuid}/`)[1] || ''; // Se não houver path especificado, usar string vazia
 	const token    = req.headers.token || '';
-	
 	const modpackPath = path.join(modpacksDirectory, uuid);
 	const modpackInfoFilePath = path.join(modpackPath, 'modpack.json');
 	const modpackFilePath = path.join(modpacksDirectory, uuid, filePath);
@@ -78,6 +77,8 @@ app.post('/uploadFile/:uuid/:path*', upload.single('file'), (req, res) => {
 
 	try {
 		const targetPath = path.join(modpackFilePath);
+		// Crie o diretório (ou diretórios) caso não existam
+		fs.mkdirSync(path.dirname(targetPath), { recursive: true });
 		fs.renameSync(uploadedFile.path, targetPath);
 		return res.status(200).json({ message: 'File uploaded successfully' });
 	} catch (error) {
@@ -108,6 +109,25 @@ app.get('/getModpackInfo/:uuid', (req, res) => {
 		return res.status(500).json({ error: 'An error occurred' });
 	}
 });
+
+// Rota para buscar informações sobre uma modpack com base no UUID
+app.get('/getModpackHashMap/:uuid', (req, res) => {
+	const { uuid } = req.params;
+	const modpackPath = path.join(modpacksDirectory, uuid);
+	const modpackHashFilePath = path.join(modpackPath, 'hashmap.json');
+	console.log(uuid)
+	// Verificar se o UUID é válido ou se o diretório existe
+	if (!isValidUUID(uuid) || !fs.existsSync(modpackHashFilePath)) {
+		return res.status(404).json({ error: 'Modpack not found' });
+	}
+	try {
+		const modpackHashMapFile = JSON.parse(fs.readFileSync(modpackHashFilePath, 'utf-8'));
+		return res.status(200).json(modpackHashMapFile);
+	} catch (error) {
+		return res.status(500).json({ error: 'An error occurred' });
+	}
+});
+
 
 
 // Rota para acessar qualquer arquivo dentro da pasta da modpack por meio do UUID
