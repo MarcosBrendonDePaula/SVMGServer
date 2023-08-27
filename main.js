@@ -87,6 +87,77 @@ app.post('/uploadFile/:uuid/:path*', upload.single('file'), (req, res) => {
 	}
 });
 
+
+// Rota para remover um arquivo dentro da pasta da modpack por meio do UUID e caminho do arquivo
+app.delete('/removeModpackFile/:uuid/*', (req, res) => {
+    const { uuid } = req.params;
+    const requestedFilePath = req.params[0];
+    const modpackPath = path.join(modpacksDirectory, uuid);
+    const targetFilePath = path.join(modpackPath, requestedFilePath);
+
+    // Verificar se o UUID é válido e se o arquivo existe
+    if (!isValidUUID(uuid) || !fs.existsSync(targetFilePath)) {
+        return res.status(404).json({ error: 'File not found or UUID is invalid' });
+    }
+
+    try {
+        fs.unlinkSync(targetFilePath); // Remover o arquivo
+        return res.status(200).json({ message: 'File removed successfully' });
+    } catch (error) {
+        return res.status(500).json({ error: 'An error occurred while removing the file' });
+    }
+});
+
+// Rota para remover uma modpack inteira por meio do UUID
+app.delete('/removeModpack/:uuid', (req, res) => {
+    const { uuid } = req.params;
+    const modpackPath = path.join(modpacksDirectory, uuid);
+
+    // Verificar se o UUID é válido e se a pasta da modpack existe
+    if (!isValidUUID(uuid) || !fs.existsSync(modpackPath)) {
+        return res.status(404).json({ error: 'Modpack not found or UUID is invalid' });
+    }
+
+    try {
+        fs.rmdirSync(modpackPath, { recursive: true }); // Remover a pasta e todos os arquivos/subpastas
+        return res.status(200).json({ message: 'Modpack removed successfully' });
+    } catch (error) {
+        return res.status(500).json({ error: 'An error occurred while removing the modpack' });
+    }
+});
+
+// Rota para enviar um arquivo ZIP e descompactar na pasta da modpack
+app.post('/uploadAndUnzip/:uuid', upload.single('file'), (req, res) => {
+    const { uuid } = req.params;
+    const modpackPath = path.join(modpacksDirectory, uuid); // Diretório da modpack
+
+    // Verificar se o UUID é válido ou se o diretório existe
+    if (!isValidUUID(uuid) || !fs.existsSync(modpackPath)) {
+        return res.status(404).json({ error: 'Modpack not found' });
+    }
+
+    const uploadedFile = req.file;
+    if (!uploadedFile) {
+        return res.status(400).json({ error: 'No file provided' });
+    }
+
+    try {
+        // Crie o diretório (ou diretórios) caso não existam
+        fs.mkdirSync(modpackPath, { recursive: true });
+
+        // Descompacte o arquivo ZIP na pasta da modpack
+        fs.createReadStream(uploadedFile.path)
+            .pipe(unzipper.Extract({ path: modpackPath }))
+            .on('close', () => {
+                fs.unlinkSync(uploadedFile.path); // Remova o arquivo ZIP após a descompactação
+                return res.status(200).json({ message: 'File uploaded and extracted successfully' });
+            });
+    } catch (error) {
+        fs.unlinkSync(uploadedFile.path);
+        return res.status(500).json({ error: 'An error occurred', error });
+    }
+});
+
 // Rota para buscar informações sobre uma modpack com base no UUID
 app.get('/getModpackInfo/:uuid', (req, res) => {
 	const { uuid } = req.params;
