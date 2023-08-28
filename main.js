@@ -220,6 +220,30 @@ app.get('/getModpackFile/:uuid/*', (req, res) => {
 	}
 });
 
+app.post('/isOwner/:uuid', (req, res) => {
+    const { uuid } = req.params;
+    const token = req.body.token || '';
+
+    const modpackPath = path.join(modpacksDirectory, uuid);
+    const modpackInfoFilePath = path.join(modpackPath, 'modpack.json');
+
+    if (!fs.existsSync(modpackInfoFilePath)) {
+        return res.status(404).json({ error: 'Modpack not found' });
+    }
+
+    try {
+        const modpackInfo = JSON.parse(fs.readFileSync(modpackInfoFilePath, 'utf-8'));
+
+        if (token === modpackInfo.token) {
+            return res.status(200).json({ message: 'Token is valid and matches modpack owner' });
+        } else {
+            return res.status(403).json({ error: 'Invalid token or not the modpack owner' });
+        }
+    } catch (error) {
+        return res.status(500).json({ error: 'An error occurred', error });
+    }
+});
+
 // Função para verificar se o token é válido
 function isValidToken(token, modpackInfo) {
 	// Comparar o token fornecido com o token no arquivo JSON
