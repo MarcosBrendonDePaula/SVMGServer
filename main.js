@@ -203,22 +203,32 @@ app.get('/getModpackHashMap/:uuid', (req, res) => {
 
 // Rota para acessar qualquer arquivo dentro da pasta da modpack por meio do UUID
 app.get('/getModpackFile/:uuid/*', (req, res) => {
-	const { uuid } = req.params;
-	const modpackPath = path.join(modpacksDirectory, uuid);
-	const requestedFilePath = path.join(modpackPath, req.params[0]);
+    const { uuid } = req.params;
+    const modpackPath = path.join(modpacksDirectory, uuid);
+    const requestedFilePath = path.join(modpackPath, req.params[0]);
 
-	// Verificar se o UUID é válido e se o diretório existe
-	if (!isValidUUID(uuid) || !fs.existsSync(requestedFilePath)) {
-		return res.status(404).json({ error: 'File not found' });
-	}
+    // Verificar se o UUID é válido e se o diretório existe
+    if (!isValidUUID(uuid) || !fs.existsSync(requestedFilePath)) {
+        return res.status(404).json({ error: 'File not found' });
+    }
 
-	try {
-		const fileContent = fs.readFileSync(requestedFilePath);
-		return res.status(200).send(fileContent);
-	} catch (error) {
-		return res.status(500).json({ error: 'An error occurred' });
-	}
+    try {
+        const fileContent = fs.readFileSync(requestedFilePath);
+
+        // Verificar se o arquivo solicitado é o modpack.json
+        if (requestedFilePath.endsWith('modpack.json')) {
+            // Se for, ajuste o campo "token" para uma string vazia
+            let modpackInfo = JSON.parse(fileContent.toString('utf-8'));
+            modpackInfo.token = "";
+            fileContent = Buffer.from(JSON.stringify(modpackInfo, null, 2), 'utf-8');
+        }
+
+        return res.status(200).send(fileContent);
+    } catch (error) {
+        return res.status(500).json({ error: 'An error occurred' });
+    }
 });
+
 
 app.post('/isOwner/:uuid', (req, res) => {
     const { uuid } = req.params;
@@ -228,19 +238,19 @@ app.post('/isOwner/:uuid', (req, res) => {
     const modpackInfoFilePath = path.join(modpackPath, 'modpack.json');
 
     if (!fs.existsSync(modpackInfoFilePath)) {
-        return res.status(404).json({ error: 'Modpack not found' });
+        return res.status(404).json({ error: 'Modpack not found', code: -1 });
     }
 
     try {
         const modpackInfo = JSON.parse(fs.readFileSync(modpackInfoFilePath, 'utf-8'));
 
         if (token === modpackInfo.token) {
-            return res.status(200).json({ message: 'Token is valid and matches modpack owner' });
+            return res.status(200).json({ message: 'Token is valid and matches modpack owner', code: 0 });
         } else {
-            return res.status(403).json({ error: 'Invalid token or not the modpack owner' });
+            return res.status(403).json({ error: 'Invalid token or not the modpack owner', code: -2 });
         }
     } catch (error) {
-        return res.status(500).json({ error: 'An error occurred', error });
+        return res.status(500).json({ error: 'An error occurred', error , code: -2  });
     }
 });
 
