@@ -213,7 +213,7 @@ app.get('/getModpackFile/:uuid/*', (req, res) => {
     }
 
     try {
-        const fileContent = fs.readFileSync(requestedFilePath);
+        let fileContent = fs.readFileSync(requestedFilePath);
 
         // Verificar se o arquivo solicitado é o modpack.json
         if (requestedFilePath.endsWith('modpack.json')) {
@@ -225,6 +225,7 @@ app.get('/getModpackFile/:uuid/*', (req, res) => {
 
         return res.status(200).send(fileContent);
     } catch (error) {
+        console.log(error)
         return res.status(500).json({ error: 'An error occurred' });
     }
 });
